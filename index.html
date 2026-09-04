@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Policy Comparator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2129;
+      --surface-2: #222b35;
+      --border: #2e3a46;
+      --text: #e8eef4;
+      --muted: #8b9aab;
+      --accent: #3d9cf0;
+      --accent-hover: #5aaff5;
+      --left: #4fc3a1;
+      --right: #7b8cff;
+      --missing: #f0b429;
+      --missing-bg: rgba(240, 180, 41, 0.08);
+      --danger: #e86b6b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: "IBM Plex Sans", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 28px 32px 8px;
+    }
+
+    header h1 {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    header p {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 20px 32px 32px;
+      gap: 16px;
+      min-height: 0;
+    }
+
+    .inputs {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 16px;
+      flex: 1;
+      min-height: 240px;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .dot-left { background: var(--left); }
+    .dot-right { background: var(--right); }
+    .dot-missing { background: var(--missing); }
+
+    .count {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    textarea,
+    .results {
+      flex: 1;
+      width: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      padding: 14px 16px;
+      resize: none;
+    }
+
+    textarea::placeholder {
+      color: #5a6a7a;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    button {
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 16px;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #061018;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn-ghost {
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-ghost:hover {
+      background: #2a3440;
+    }
+
+    .results-panel {
+      min-height: 220px;
+      max-height: 38vh;
+    }
+
+    .results {
+      overflow: auto;
+      white-space: pre-wrap;
+    }
+
+    .empty {
+      color: var(--muted);
+    }
+
+    .result-item {
+      padding: 2px 0;
+    }
+
+    .match-note {
+      margin-left: auto;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    @media (max-width: 520px) {
+      header, main { padding-left: 16px; padding-right: 16px; }
+      .inputs { grid-template-columns: 1fr; min-height: auto; }
+      textarea { min-height: 140px; }
+      .match-note { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Policy Comparator</h1>
+    <p>Paste JSON arrays, comma-separated names, or one policy per line. The bottom list shows items on the left that are missing from the right.</p>
+  </header>
+
+  <main>
+    <section class="inputs">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title"><span class="dot dot-left"></span> Left policies</div>
+          <span class="count" id="leftCount">0 items</span>
+        </div>
+        <textarea id="leftList" placeholder="policy-a&#10;policy-b&#10;policy-c" spellcheck="false"></textarea>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title"><span class="dot dot-right"></span> Right policies</div>
+          <span class="count" id="rightCount">0 items</span>
+        </div>
+        <textarea id="rightList" placeholder="policy-b&#10;policy-d" spellcheck="false"></textarea>
+      </div>
+    </section>
+
+    <div class="actions">
+      <button class="btn-primary" id="compareBtn" type="button">Compare</button>
+      <button class="btn-ghost" id="clearBtn" type="button">Clear</button>
+      <button class="btn-ghost" id="copyBtn" type="button">Copy results</button>
+      <span class="match-note">Accepts JSON arrays, quoted names, or one item per line. Matching ignores case, quotes, and commas.</span>
+    </div>
+
+    <section class="panel results-panel">
+      <div class="panel-head">
+        <div class="panel-title"><span class="dot dot-missing"></span> In left, not in right</div>
+        <span class="count" id="missingCount">0 missing</span>
+      </div>
+      <div class="results empty" id="results" aria-live="polite">Results will appear here after you compare.</div>
+    </section>
+  </main>
+
+  <script>
+    const leftInput = document.getElementById("leftList");
+    const rightInput = document.getElementById("rightList");
+    const resultsEl = document.getElementById("results");
+    const leftCount = document.getElementById("leftCount");
+    const rightCount = document.getElementById("rightCount");
+    const missingCount = document.getElementById("missingCount");
+
+    function addItem(value, seen, items) {
+      const cleaned = String(value)
+        .trim()
+        .replace(/^["'`]+|["'`]+$/g, "")
+        .replace(/,+$/g, "")
+        .trim();
+
+      if (!cleaned || cleaned === "[" || cleaned === "]") return;
+
+      const key = cleaned.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      items.push({ value: cleaned, key });
+    }
+
+    function tryParseJsonArray(text) {
+      const normalized = text.trim().replace(/,(\s*[\]}])/g, "$1");
+      try {
+        const parsed = JSON.parse(normalized);
+        return Array.isArray(parsed) ? parsed.map(String) : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function parseList(text) {
+      const seen = new Set();
+      const items = [];
+      if (!text || !text.trim()) return items;
+
+      const jsonItems = tryParseJsonArray(text);
+      if (jsonItems) {
+        jsonItems.forEach((value) => addItem(value, seen, items));
+        return items;
+      }
+
+      const quoted = text.match(/["'`]([^"'`\r\n]+)["'`]/g);
+      if (quoted && quoted.length) {
+        quoted.forEach((value) => addItem(value, seen, items));
+        return items;
+      }
+
+      text.split(/[\r\n,;]+/).forEach((value) => addItem(value, seen, items));
+      return items;
+    }
+
+    function formatCount(n, singular, plural) {
+      return n + " " + (n === 1 ? singular : plural);
+    }
+
+    function updateCounts() {
+      leftCount.textContent = formatCount(parseList(leftInput.value).length, "item", "items");
+      rightCount.textContent = formatCount(parseList(rightInput.value).length, "item", "items");
+    }
+
+    function compare() {
+      const left = parseList(leftInput.value);
+      const right = parseList(rightInput.value);
+      const rightKeys = new Set(right.map((item) => item.key));
+      const missing = left.filter((item) => !rightKeys.has(item.key));
+
+      updateCounts();
+      missingCount.textContent = formatCount(missing.length, "missing", "missing");
+
+      if (!left.length && !right.length) {
+        resultsEl.classList.add("empty");
+        resultsEl.textContent = "Add policies on both sides, then compare.";
+        return;
+      }
+
+      if (!missing.length) {
+        resultsEl.classList.add("empty");
+        resultsEl.textContent = "Every left-side policy is also present on the right.";
+        return;
+      }
+
+      resultsEl.classList.remove("empty");
+      resultsEl.textContent = missing.map((item) => item.value).join("\n");
+    }
+
+    function clearAll() {
+      leftInput.value = "";
+      rightInput.value = "";
+      resultsEl.classList.add("empty");
+      resultsEl.textContent = "Results will appear here after you compare.";
+      missingCount.textContent = "0 missing";
+      updateCounts();
+      leftInput.focus();
+    }
+
+    async function copyResults() {
+      const text = resultsEl.classList.contains("empty") ? "" : resultsEl.textContent;
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+        const btn = document.getElementById("copyBtn");
+        const original = btn.textContent;
+        btn.textContent = "Copied";
+        setTimeout(() => { btn.textContent = original; }, 1200);
+      } catch {
+        window.prompt("Copy these results:", text);
+      }
+    }
+
+    document.getElementById("compareBtn").addEventListener("click", compare);
+    document.getElementById("clearBtn").addEventListener("click", clearAll);
+    document.getElementById("copyBtn").addEventListener("click", copyResults);
+    leftInput.addEventListener("input", () => {
+      updateCounts();
+      compare();
+    });
+    rightInput.addEventListener("input", () => {
+      updateCounts();
+      compare();
+    });
+  </script>
+</body>
+</html>
